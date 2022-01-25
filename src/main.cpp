@@ -81,7 +81,13 @@ String printGPS()
         s += '0';
     s += String(GPS.seconds) + '\n';
 
-    s += String(GPS.speed * 1.852f) + ' ';
+    uint16_t speed = uint16_t(GPS.speed * 1.852f);
+    if (speed < 10)
+        s += "  ";
+    else if (speed < 100)
+        s += " ";
+    s += String(speed) + ' ';
+
     s += String(directions[int(GPS.angle / 45)]) + '\n';
 
     return s;
