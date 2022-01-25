@@ -15,6 +15,20 @@
 #define TFT_RST 3 // Or set to -1 and connect to Arduino RESET pin
 #define TFT_DC 5
 
+constexpr char const *directions[] =
+    {
+        " N ",
+        "N-E",
+        " E ",
+        "S-E",
+        " S ",
+        "S-O",
+        " O ",
+        "N-O",
+};
+
+constexpr char loading[] = {'|', '/', '-', '\\'};
+
 Adafruit_GPS GPS(&Serial1);
 Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 
@@ -35,22 +49,7 @@ void setup()
     GPS.sendCommand(PMTK_SET_BAUD_57600);
     Serial1.end();
     GPS.begin(57600);
-
 }
-
-constexpr char const *directions[] =
-    {
-        " N ",
-        "N-E",
-        " E ",
-        "S-E",
-        " S ",
-        "S-O",
-        " O ",
-        "N-O",
-};
-
-constexpr char loading[] = {'|', '/', '-', '\\'};
 
 String printGPS()
 {
