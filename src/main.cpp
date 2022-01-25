@@ -53,7 +53,7 @@ void setup()
         delay(1);
 
     GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCONLY);
-    GPS.sendCommand(PMTK_SET_NMEA_UPDATE_2HZ);
+    GPS.sendCommand(PMTK_SET_NMEA_UPDATE_5HZ);
     GPS.sendCommand(PMTK_SET_BAUD_57600);
     Serial1.end();
     GPS.begin(57600);
@@ -91,48 +91,30 @@ void loop()
 {
     static String s;
     static uint8_t cpt;
-    static uint32_t cycle_time, cycle_begin;
-
-    uint32_t now = millis();
 
     GPS.read();
 
     if (GPS.newNMEAreceived())
     {
-        uint32_t usage = 100 * cycle_time / (now - cycle_begin);
-        cycle_begin = now;
-
-        digitalWrite(LED_BUILTIN, usage >= 100);
+        // indicate that the display couldn't keep up
+        digitalWrite(LED_BUILTIN, s.length() > 0);
 
         GPS.parse(GPS.lastNMEA());
 
         tft.setCursor(0, 0);
 
-        s = loading[cpt];
+        s = String(loading[cpt]) + '\n';
         cpt = (cpt + 1) % 4;
-
-        if (usage < 10)
-            s += "   ";
-        else if (usage < 100)
-            s += "  ";
-        else
-            s += " ";
-        s += String(usage) + "%\n";
 
         if (GPS.fix)
         {
             s += printGPS();
         }
-
-        tft.print(s);
-        cycle_time = millis() - cycle_begin;
     }
-    // else if (s.length() > 0)
-    // {
-    //     // SPI transactions are synchronous, so print 1 character per cycle
-    //     tft.print(s[0]);
-    //     s = s.substring(1);
-    //     if (s.length() == 0)
-    //         cycle_time = millis() - cycle_begin;
-    // }
+    else if (s.length() > 0)
+    {
+        // SPI transactions are synchronous, so print 1 character per cycle to minimize cycle time
+        tft.print(s[0]);
+        s = s.substring(1);
+    }
 }
