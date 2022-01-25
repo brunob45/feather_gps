@@ -34,6 +34,11 @@ Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 
 void setup()
 {
+    uint32_t begin = millis();
+
+    pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, HIGH);
+
     Serial.begin(115200);
     GPS.begin(9600);
 
@@ -43,12 +48,17 @@ void setup()
     tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
     tft.fillScreen(ST77XX_BLACK);
 
-    delay(1000);
+    // wait for 1.5 seconds
+    while (millis() - begin < 1500)
+        delay(1);
 
     GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCONLY);
+    GPS.sendCommand(PMTK_SET_NMEA_UPDATE_2HZ);
     GPS.sendCommand(PMTK_SET_BAUD_57600);
     Serial1.end();
     GPS.begin(57600);
+
+    digitalWrite(LED_BUILTIN, LOW);
 }
 
 String printGPS()
@@ -81,27 +91,48 @@ void loop()
 {
     static String s;
     static uint8_t cpt;
+    static uint32_t cycle_time, cycle_begin;
+
+    uint32_t now = millis();
 
     GPS.read();
 
     if (GPS.newNMEAreceived())
     {
+        uint32_t usage = 100 * cycle_time / (now - cycle_begin);
+        cycle_begin = now;
+
+        digitalWrite(LED_BUILTIN, usage >= 100);
+
         GPS.parse(GPS.lastNMEA());
 
         tft.setCursor(0, 0);
 
-        s = loading[cpt] + String('\n');
+        s = loading[cpt];
         cpt = (cpt + 1) % 4;
+
+        if (usage < 10)
+            s += "   ";
+        else if (usage < 100)
+            s += "  ";
+        else
+            s += " ";
+        s += String(usage) + "%\n";
 
         if (GPS.fix)
         {
             s += printGPS();
         }
+
+        tft.print(s);
+        cycle_time = millis() - cycle_begin;
     }
-    else if (s.length() > 0)
-    {
-        // SPI transactions are synchronous, so print 1 character per cycle
-        tft.print(s[0]);
-        s = s.substring(1);
-    }
+    // else if (s.length() > 0)
+    // {
+    //     // SPI transactions are synchronous, so print 1 character per cycle
+    //     tft.print(s[0]);
+    //     s = s.substring(1);
+    //     if (s.length() == 0)
+    //         cycle_time = millis() - cycle_begin;
+    // }
 }
