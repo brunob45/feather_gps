@@ -8,29 +8,12 @@
 // Connect GPS TX (data out from GPS) to Digital 1
 
 #include <Arduino.h>
-#include <Adafruit_GPS.h>
-#include <Adafruit_ST7735.h>
-
-#define TFT_CS 2
-#define TFT_RST 3 // Or set to -1 and connect to Arduino RESET pin
-#define TFT_DC 5
-
-constexpr char const *directions[] =
-    {
-        " N ",
-        "N-E",
-        " E ",
-        "S-E",
-        " S ",
-        "S-O",
-        " O ",
-        "N-O",
-};
+#include "sd_card.h"
+#include "display.h"
+#include "pins.h"
+#include "gps.h"
 
 constexpr char loading[] = {'|', '/', '-', '\\'};
-
-Adafruit_GPS GPS(&Serial1);
-Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 
 void setup()
 {
@@ -40,63 +23,24 @@ void setup()
     digitalWrite(LED_BUILTIN, HIGH);
 
     Serial.begin(115200);
-    GPS.begin(9600);
 
-    tft.initR(INITR_BLACKTAB);
-    tft.setRotation(1);
-    tft.setTextSize(3);
-    tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
-    tft.fillScreen(ST77XX_BLACK);
+    Display::init();
 
-    // wait for 1.5 seconds
-    while (millis() - begin < 1500)
-        delay(1);
+    pinMode(SD_CS, OUTPUT);
 
-    GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCONLY);
-    GPS.sendCommand(PMTK_SET_NMEA_UPDATE_5HZ);
-    GPS.sendCommand(PMTK_SET_BAUD_57600);
-    Serial1.end();
-    GPS.begin(57600);
+    // SD::init();
+
+    GPS::init();
 
     digitalWrite(LED_BUILTIN, LOW);
-}
-
-String printGPS()
-{
-    String s;
-
-    GPS.hour = (GPS.hour + 19) % 24;
-
-    if (GPS.hour < 10)
-        s += '0';
-    s += String(GPS.hour);
-    s += ':';
-
-    if (GPS.minute < 10)
-        s += '0';
-    s += String(GPS.minute);
-    s += ':';
-
-    if (GPS.seconds < 10)
-        s += '0';
-    s += String(GPS.seconds) + '\n';
-
-    uint16_t speed = uint16_t(GPS.speed * 1.852f);
-    if (speed < 10)
-        s += "  ";
-    else if (speed < 100)
-        s += " ";
-    s += String(speed) + ' ';
-
-    s += String(directions[int(GPS.angle / 45)]) + '\n';
-
-    return s;
 }
 
 void loop()
 {
     static String s;
     static uint8_t cpt;
+
+    
 
     GPS.read();
 
@@ -107,7 +51,7 @@ void loop()
 
         GPS.parse(GPS.lastNMEA());
 
-        tft.setCursor(0, 0);
+        Display::reset();
 
         s = String(loading[cpt]) + '\n';
         cpt = (cpt + 1) % 4;
@@ -120,7 +64,7 @@ void loop()
     else if (s.length() > 0)
     {
         // SPI transactions are synchronous, so print 1 character per cycle to minimize cycle time
-        tft.print(s[0]);
+        Display::print(s[0]);
         s = s.substring(1);
     }
 }
