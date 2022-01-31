@@ -14,9 +14,9 @@
 
 #define SerialGPS Serial0
 
-#define TFT_CS PIN_PD3
+#define TFT_CS PIN_PD5
 #define TFT_RST PIN_PD4 // Or set to -1 and connect to Arduino RESET pin
-#define TFT_DC PIN_PD5
+#define TFT_DC PIN_PD3
 #define TFT_LIT PIN_PD0
 
 #define SD_CS PIN_PA7
@@ -40,7 +40,7 @@ static Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
 
 static Sd2Card card;
 static SdVolume volume;
-static SdFile root;
+// static SdFile root;
 
 static float sdsize;
 
@@ -49,9 +49,10 @@ void setup()
     uint32_t begin = millis();
 
     pinMode(LED_BUILTIN, OUTPUT);
+    digitalWrite(LED_BUILTIN, LOW);
+
     pinMode(TFT_LIT, OUTPUT);
-    analogWrite(TFT_LIT, 255);
-    digitalWrite(LED_BUILTIN, HIGH);
+    digitalWrite(TFT_LIT, LOW);
 
     Serial.begin(115200);
     GPS.begin(9600);
@@ -73,11 +74,7 @@ void setup()
             ;
     }
 
-    uint32_t volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
-    volumesize *= volume.clusterCount();       // we'll have a lot of clusters
-    volumesize /= 2;                           // SD card blocks are always 512 bytes (2 blocks are 1 KB)
-    volumesize /= 1024;
-    sdsize = volumesize / 1024.0f;
+    sdsize = volume.blocksPerCluster() * volume.clusterCount() * 5.12e-7f;
 
     tft.setTextSize(3);
 
@@ -91,7 +88,8 @@ void setup()
     SerialGPS.end();
     GPS.begin(57600);
 
-    digitalWrite(LED_BUILTIN, LOW);
+    digitalWrite(TFT_LIT, HIGH);
+    digitalWrite(LED_BUILTIN, HIGH);
 }
 
 String printGPS()
