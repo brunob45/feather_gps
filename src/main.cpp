@@ -10,10 +10,16 @@
 #include <Arduino.h>
 #include <Adafruit_GPS.h>
 #include <Adafruit_ST7735.h>
+#include <SD.h>
 
-#define TFT_CS 2
-#define TFT_RST 3 // Or set to -1 and connect to Arduino RESET pin
-#define TFT_DC 5
+#define SerialGPS Serial0
+
+#define TFT_CS PIN_PD3
+#define TFT_RST PIN_PD4 // Or set to -1 and connect to Arduino RESET pin
+#define TFT_DC PIN_PD5
+#define TFT_LIT PIN_PD0
+
+#define SD_CS PIN_PA7
 
 constexpr char const *directions[] =
     {
@@ -29,14 +35,22 @@ constexpr char const *directions[] =
 
 constexpr char loading[] = {'|', '/', '-', '\\'};
 
-Adafruit_GPS GPS(&Serial1);
-Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
+static Adafruit_GPS GPS(&SerialGPS);
+static Adafruit_ST7735 tft = Adafruit_ST7735(TFT_CS, TFT_DC, TFT_RST);
+
+static Sd2Card card;
+static SdVolume volume;
+static SdFile root;
+
+static float sdsize;
 
 void setup()
 {
     uint32_t begin = millis();
 
     pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(TFT_LIT, OUTPUT);
+    analogWrite(TFT_LIT, 255);
     digitalWrite(LED_BUILTIN, HIGH);
 
     Serial.begin(115200);
@@ -44,9 +58,28 @@ void setup()
 
     tft.initR(INITR_BLACKTAB);
     tft.setRotation(1);
-    tft.setTextSize(3);
     tft.setTextColor(ST77XX_CYAN, ST77XX_BLACK);
     tft.fillScreen(ST77XX_BLACK);
+
+    if (!card.init(SPI_HALF_SPEED, SD_CS))
+    {
+        tft.println("SD initialization failed.");
+        while (1)
+            ;
+    }
+    if (!volume.init(card)) {
+        tft.println("Could not find partition.");
+        while (1)
+            ;
+    }
+
+    uint32_t volumesize = volume.blocksPerCluster();    // clusters are collections of blocks
+    volumesize *= volume.clusterCount();       // we'll have a lot of clusters
+    volumesize /= 2;                           // SD card blocks are always 512 bytes (2 blocks are 1 KB)
+    volumesize /= 1024;
+    sdsize = volumesize / 1024.0f;
+
+    tft.setTextSize(3);
 
     // wait for 1.5 seconds
     while (millis() - begin < 1500)
@@ -55,7 +88,7 @@ void setup()
     GPS.sendCommand(PMTK_SET_NMEA_OUTPUT_RMCONLY);
     GPS.sendCommand(PMTK_SET_NMEA_UPDATE_5HZ);
     GPS.sendCommand(PMTK_SET_BAUD_57600);
-    Serial1.end();
+    SerialGPS.end();
     GPS.begin(57600);
 
     digitalWrite(LED_BUILTIN, LOW);
@@ -108,8 +141,8 @@ void loop()
         GPS.parse(GPS.lastNMEA());
 
         tft.setCursor(0, 0);
-
-        s = String(loading[cpt]) + '\n';
+        s = String(sdsize) + ' ';
+        s += String(loading[cpt]) + '\n';
         cpt = (cpt + 1) % 4;
 
         if (GPS.fix)
